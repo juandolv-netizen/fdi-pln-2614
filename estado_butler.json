@@ -1,0 +1,41 @@
+{
+  "Profe": {
+    "Alias": "Profe",
+    "Recursos": {
+      "madera": 2,
+      "vino": 4,
+      "piedra": 3,
+      "oro": 16
+    },
+    "Objetivo": {
+      "queso": 5,
+      "tela": 3,
+      "madera": 4
+    },
+    "Buzon": {}
+  },
+  "Npi": {
+    "Alias": "Npi",
+    "Recursos": {
+      "madera": 3,
+      "ladrillos": 4,
+      "aceite": 2,
+      "oro": 16
+    },
+    "Objetivo": {
+      "madera": 3,
+      "vino": 4,
+      "piedra": 4
+    },
+    "Buzon": {
+      "d867c9f4-1576-4be3-813c-07f6642d4e5a": {
+        "remi": "Profe",
+        "dest": "Npi",
+        "asunto": "Hola!",
+        "cuerpo": "Hola Npi,\n\nEstoy buscando un trato con recursos que te faltan. Necesito madera y queso. ¿Quieres intercambiar algo contigo?  \n\nAcuerdo\nProfe",
+        "id": "d867c9f4-1576-4be3-813c-07f6642d4e5a",
+        "fecha": "2026-02-27T22:50:56.534445"
+      }
+    }
+  }
+}
