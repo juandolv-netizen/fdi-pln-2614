@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fdi-pln-2614-p4"
+version = "1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "bs4>=0.0.2",
+    "spacy>=3.8.11",
+    "numpy",
+    "rich",
+    "es_core_news_md @ https://github.com/explosion/spacy-models/releases/download/es_core_news_md-3.8.0/es_core_news_md-3.8.0-py3-none-any.whl",
+    "ollama>=0.6.1",
+]
+
+[project.scripts]
+fdi-pln-2614-p4 = "fdi_pln_2614_p4.main:main"
+
+[tool.setuptools]
+packages = ["fdi_pln_2614_p4"]
+package-dir = {"" = "src"}
