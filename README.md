@@ -1,4 +1,4 @@
-```markdown
+
 # Práctica 4: Aplicación de Búsqueda y RAG (PLN)
 
 ## Integrantes del Equipo (Grupo 2614)
