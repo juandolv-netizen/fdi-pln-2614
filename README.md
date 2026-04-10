@@ -2,10 +2,7 @@
 # Práctica 4: Aplicación de Búsqueda y RAG (PLN)
 
 ## Integrantes del Equipo (Grupo 2614)
-* [Nombre y Apellidos del integrante 1]
-* [Nombre y Apellidos del integrante 2]
-* [Añadir el resto de integrantes]
-
+* Olvera Medina Juan Diego
 ## Descripción
 Aplicación de terminal interactiva (TUI) que procesa un archivo fuente HTML, lo divide en fragmentos (chunks) y permite realizar consultas sobre el texto utilizando técnicas de procesamiento de lenguaje natural y modelos de lenguaje.
 
