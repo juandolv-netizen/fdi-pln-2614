@@ -41,7 +41,17 @@ class BPETokenizer:
     @staticmethod
     def _apply_merge(tokens, a, b, new_id):
         """Reemplaza todas las ocurrencias del par (a, b) por new_id."""
-        raise NotImplementedError  # TAREA: HACER
+        nw_tokens = []
+        i = 0
+        while i < len(tokens):
+            if i < len(tokens) - 1 and tokens[i] == a and tokens [i+1] == b:
+                nw_tokens.append(new_id)
+                i += 2
+            else:
+                nw_tokens.append(tokens[i])
+                i += 1
+        return nw_tokens
+        #raise NotImplementedError  # TAREA: HACER
 
     def encode(self, text):
         """Codifica un texto aplicando los merges aprendidos."""
@@ -52,7 +62,9 @@ class BPETokenizer:
 
     def decode(self, ids):
         """Decodifica una lista de ids a texto."""
-        raise NotImplementedError  # TAREA: HACER
+        #Une las cadenas correspondientes a cada ID almacenadas en self.vocab
+        return "".join(self.vocab[idx] for idx in ids)
+        #raise NotImplementedError  # TAREA: HACER
 
     def __repr__(self):
         pretty = [t.replace("\n", "\\n").replace(" ", "▁") for t in self.vocab]
