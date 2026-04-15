@@ -58,6 +58,9 @@ class Attention(nn.Module):
         # Nota: para escalar, dividir por raíz de head_dim (para que los logits
         # no crezcan sin control)
         # z = ...?
+        "Calcula la similitud (producto escalar de Q y K)"
+        ""
+
         raise NotImplementedError
 
         # "deshacemos" la partición en cabezales
