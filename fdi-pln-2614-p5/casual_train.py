@@ -89,7 +89,6 @@ def train(
 
 if __name__ == "__main__":
     import sys
-    # Importaciones corregidas según archivos proporcionados
     from llm import LM
     from tokenizer import BPETokenizer
     
@@ -106,8 +105,8 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    VOCAB_SIZE = 300
-    CONTEXT_SIZE = 128
+    VOCAB_SIZE = 600
+    CONTEXT_SIZE = 256
 
     tokenizer = BPETokenizer(text, vocab_size=VOCAB_SIZE)
     tokens = tokenizer.encode(text)
@@ -124,6 +123,16 @@ if __name__ == "__main__":
     ).to(device)
 
     train(model, tokens, epochs=5, context_size=CONTEXT_SIZE)
+
+    # 1. Guardar pesos del modelo
+    torch.save(model.state_dict(), "modelo_preentrenado.pth")
+
+    # 2. Guardar tokenizador (vocabulario y merges requeridos para consistencia)
+    import pickle
+    with open("tokenizer.pkl", "wb") as f:
+        pickle.dump(tokenizer, f)
+    
+    logger.info("Modelo y tokenizador guardados exitosamente.")
 
     prompt = "alice and the cat were studying for the exam. what "
     # Codificación del prompt y generación
