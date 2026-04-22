@@ -4,9 +4,42 @@
 # Antonio F. G. Sevilla <afgs@ucm.es>
 
 import time
+import json
+import dataclasses
+from datetime import datetime
+from dataclasses import dataclass
+
 import torch
 from loguru import logger
 from torch.utils.data import DataLoader, Dataset
+
+
+@dataclass
+class ModelConfig:
+    vocab_size: int = 500
+    context_size: int = 256
+    d_model: int = 128
+    n_heads: int = 4
+    n_layers: int = 4
+    expansion: int = 4
+    dropout: float = 0.25
+    batch_size: int = 64
+    epochs: int = 5
+    lr: float = 3e-4
+    train_ratio: float = 0.9
+
+
+def registrar_experimento(config, train_loss, val_loss, tiempo, filepath="experimentos.jsonl"):
+    registro = {
+        "timestamp": datetime.now().isoformat(),
+        "config": dataclasses.asdict(config),
+        "train_loss": train_loss,
+        "val_loss": val_loss,
+        "tiempo_s": tiempo
+    }
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.write(json.dumps(registro) + "\n")
+
 
 class TextDataset(Dataset):
     def __init__(self, data, seq_len):
@@ -21,6 +54,7 @@ class TextDataset(Dataset):
         y = self.data[idx + 1 : idx + self.seq_len + 1]
         return x, y
 
+
 def _make_dataloaders(tokens, context_size, batch_size, train_ratio=0.9):
     data = torch.tensor(tokens, dtype=torch.long)
     split = int(train_ratio * len(data))
@@ -32,6 +66,7 @@ def _make_dataloaders(tokens, context_size, batch_size, train_ratio=0.9):
         DataLoader(train_ds, batch_size=batch_size, shuffle=True),
         DataLoader(val_ds, batch_size=batch_size),
     )
+
 
 def _run_epoch(model, dataloader, optimizer=None):
     total_loss, n = 0, 0
@@ -62,6 +97,7 @@ def _run_epoch(model, dataloader, optimizer=None):
 
     return total_loss / n
 
+
 def train(
     model,
     tokens,
@@ -74,10 +110,19 @@ def train(
     train_dl, val_dl = _make_dataloaders(tokens, context_size, batch_size, train_ratio)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
+    best_val_loss = float('inf') # Añadido
+
     t0 = time.time()
     for epoch in range(epochs):
         train_loss = _run_epoch(model, train_dl, optimizer)
         val_loss = _run_epoch(model, val_dl, None)
+        
+        # solo si hay mejora
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save(model.state_dict(), "modelo_preentrenado.pth")
+            logger.info(f"Punto de control guardado (val_loss: {best_val_loss:.4f})")
+
         elapsed = time.time() - t0
         logger.info(
             f"Epoca {epoch + 1}/{epochs} | train={train_loss:.4f} | "
@@ -86,13 +131,14 @@ def train(
 
     elapsed = time.time() - t0
     logger.info(f"Entrenamiento finalizado en {elapsed:.1f}s")
+    return train_loss, val_loss, elapsed
+
 
 if __name__ == "__main__":
     import sys
     from llm import LM
     from tokenizer import BPETokenizer
     
-    # Se asume que load_corpus está disponible en el entorno o en un archivo corpus.py local
     try:
         from corpus import load_corpus
     except ImportError:
@@ -105,29 +151,33 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    VOCAB_SIZE = 600
-    CONTEXT_SIZE = 256
+    config = ModelConfig()
 
-    tokenizer = BPETokenizer(text, vocab_size=VOCAB_SIZE)
+    tokenizer = BPETokenizer(text, vocab_size=config.vocab_size)
     tokens = tokenizer.encode(text)
 
-    # Instanciación de LM con los argumentos esperados por llm.py
     model = LM(
         vocab_size=len(tokenizer.vocab),
-        d_model=128,
-        n_heads=4,
-        n_layers=4,
-        max_seq_len=CONTEXT_SIZE,
-        expansion=4,
-        dropout=0.1,
+        d_model=config.d_model,
+        n_heads=config.n_heads,
+        n_layers=config.n_layers,
+        max_seq_len=config.context_size,
+        expansion=config.expansion,
+        dropout=config.dropout,
     ).to(device)
 
-    train(model, tokens, epochs=5, context_size=CONTEXT_SIZE)
+    train_loss, val_loss, elapsed = train(
+        model, 
+        tokens, 
+        epochs=config.epochs, 
+        context_size=config.context_size,
+        batch_size=config.batch_size,
+        lr=config.lr,
+        train_ratio=config.train_ratio
+    )
 
-    # 1. Guardar pesos del modelo
-    torch.save(model.state_dict(), "modelo_preentrenado.pth")
+    registrar_experimento(config, train_loss, val_loss, elapsed)
 
-    # 2. Guardar tokenizador (vocabulario y merges requeridos para consistencia)
     import pickle
     with open("tokenizer.pkl", "wb") as f:
         pickle.dump(tokenizer, f)
@@ -135,7 +185,6 @@ if __name__ == "__main__":
     logger.info("Modelo y tokenizador guardados exitosamente.")
 
     prompt = "alice and the cat were studying for the exam. what "
-    # Codificación del prompt y generación
     prompt_ids = tokenizer.encode(prompt)
     pred_ids = model.generate(prompt_ids, max_tokens=200)
     logger.opt(colors=True).info(f"<cyan>{prompt}</cyan>{tokenizer.decode(pred_ids)[:500]}")
