@@ -1,0 +1,1 @@
+{"timestamp": "2026-04-22T17:41:03.742643", "config": {"vocab_size": 500, "context_size": 256, "d_model": 128, "n_heads": 4, "n_layers": 4, "expansion": 4, "dropout": 0.25, "batch_size": 64, "epochs": 5, "lr": 0.0003, "train_ratio": 0.9}, "train_loss": 2.0322679028056103, "val_loss": 1.9953050746904033, "tiempo_s": 2619.135797739029}
