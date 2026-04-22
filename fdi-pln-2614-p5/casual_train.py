@@ -24,7 +24,7 @@ class ModelConfig:
     expansion: int = 4
     dropout: float = 0.25
     batch_size: int = 64
-    epochs: int = 5
+    epochs: int = 10
     lr: float = 3e-4
     train_ratio: float = 0.9
 
@@ -63,14 +63,16 @@ def _make_dataloaders(tokens, context_size, batch_size, train_ratio=0.9):
     logger.info(f"Train: {len(train_ds):,} muestras, Val: {len(val_ds):,}")
 
     return (
-        DataLoader(train_ds, batch_size=batch_size, shuffle=True),
-        DataLoader(val_ds, batch_size=batch_size),
+        DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=True),
+        DataLoader(val_ds, batch_size=batch_size, pin_memory=True),
     )
 
 
 def _run_epoch(model, dataloader, optimizer=None):
     total_loss, n = 0, 0
     device = next(model.parameters()).device
+
+    scaler = torch.cuda.amp.GradScaler() if optimizer and device.type == "cuda" else None
 
     if optimizer:
         model.train()
@@ -80,17 +82,20 @@ def _run_epoch(model, dataloader, optimizer=None):
         torch.set_grad_enabled(False)
 
     for x, y in dataloader:
-        x, y = x.to(device), y.to(device)
+        x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
         if optimizer:
             optimizer.zero_grad()
 
-        _, loss = model(x, y)
+        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=device.type == "cuda"):
+            _, loss = model(x, y)
 
         if optimizer:
-            loss.backward()
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
 
         total_loss += loss.item()
         n += 1
@@ -110,14 +115,13 @@ def train(
     train_dl, val_dl = _make_dataloaders(tokens, context_size, batch_size, train_ratio)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
-    best_val_loss = float('inf') # Añadido
+    best_val_loss = float('inf') 
 
     t0 = time.time()
     for epoch in range(epochs):
         train_loss = _run_epoch(model, train_dl, optimizer)
         val_loss = _run_epoch(model, val_dl, None)
         
-        # solo si hay mejora
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), "modelo_preentrenado.pth")
