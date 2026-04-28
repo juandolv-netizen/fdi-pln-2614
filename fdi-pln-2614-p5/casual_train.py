@@ -1,13 +1,12 @@
-# Entrenamiento de LLM causal en base a un corpus
-#
-# PLN 2025/2026 (FDI UCM)
-# Antonio F. G. Sevilla <afgs@ucm.es>
-
+# casual_train.py
+import os
 import time
 import json
+import pickle
 import dataclasses
 from datetime import datetime
 from dataclasses import dataclass
+from pathlib import Path
 
 import torch
 from loguru import logger
@@ -16,17 +15,18 @@ from torch.utils.data import DataLoader, Dataset
 
 @dataclass
 class ModelConfig:
-    vocab_size: int = 500
+    vocab_size: int = 2000
     context_size: int = 256
     d_model: int = 128
     n_heads: int = 4
     n_layers: int = 4
     expansion: int = 4
-    dropout: float = 0.25
-    batch_size: int = 64
-    epochs: int = 10
+    dropout: float = 0.35
+    batch_size: int = 128
+    epochs: int = 7
     lr: float = 3e-4
     train_ratio: float = 0.9
+    val_freq: int = 5
 
 
 def registrar_experimento(config, train_loss, val_loss, tiempo, filepath="experimentos.jsonl"):
@@ -63,8 +63,8 @@ def _make_dataloaders(tokens, context_size, batch_size, train_ratio=0.9):
     logger.info(f"Train: {len(train_ds):,} muestras, Val: {len(val_ds):,}")
 
     return (
-        DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=True),
-        DataLoader(val_ds, batch_size=batch_size, pin_memory=True),
+        DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=4, prefetch_factor=2),
+        DataLoader(val_ds, batch_size=batch_size, pin_memory=True, num_workers=4, prefetch_factor=2),
     )
 
 
@@ -111,26 +111,31 @@ def train(
     batch_size=64,
     lr=3e-4,
     train_ratio=0.9,
+    val_freq=5
 ):
     train_dl, val_dl = _make_dataloaders(tokens, context_size, batch_size, train_ratio)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
     best_val_loss = float('inf') 
+    val_loss = None
 
     t0 = time.time()
     for epoch in range(epochs):
         train_loss = _run_epoch(model, train_dl, optimizer)
-        val_loss = _run_epoch(model, val_dl, None)
         
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            torch.save(model.state_dict(), "modelo_preentrenado.pth")
-            logger.info(f"Punto de control guardado (val_loss: {best_val_loss:.4f})")
+        if (epoch + 1) % val_freq == 0 or epoch == epochs - 1:
+            val_loss = _run_epoch(model, val_dl, None)
+            
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                torch.save(model.state_dict(), "modelo_preentrenado.pth")
+                logger.info(f"Punto de control guardado (val_loss: {best_val_loss:.4f})")
 
         elapsed = time.time() - t0
+        val_log = f"{val_loss:.4f}" if val_loss is not None else "N/A"
         logger.info(
             f"Epoca {epoch + 1}/{epochs} | train={train_loss:.4f} | "
-            f"val={val_loss:.4f} | tiempo={elapsed:.1f}s"
+            f"val={val_log} | tiempo={elapsed:.1f}s"
         )
 
     elapsed = time.time() - t0
@@ -142,24 +147,46 @@ if __name__ == "__main__":
     import sys
     from llm import LM
     from tokenizer import BPETokenizer
+    from preprocess import run_preprocessing
     
+    # 0. Preprocesamiento dinámico
+    input_corpus_dir = sys.argv[1] if len(sys.argv) > 1 else "resources"
+    processed_dir = f"{input_corpus_dir}_clean"
+    
+    logger.info(f"Preprocesando corpus desde '{input_corpus_dir}' hacia '{processed_dir}'...")
+    run_preprocessing(
+        input_dir=input_corpus_dir, 
+        output_dir=processed_dir, 
+        exclude_files={"Natural_Language_Processing_with_Python.txt"}
+    )
+
+    # 1. Carga de corpus
     try:
         from corpus import load_corpus
+        text = load_corpus(processed_dir)
     except ImportError:
         def load_corpus(path):
-            from pathlib import Path
-            return "\n".join(open(p, encoding="utf-8").read() for p in Path(path).glob("*.txt"))
-
-    corpus = sys.argv[1] if len(sys.argv) > 1 else "resources"
-    text = load_corpus(corpus)
+            p = Path(path)
+            return "\n".join(open(f, encoding="utf-8", errors="ignore").read() for f in p.glob("*.txt"))
+        text = load_corpus(processed_dir)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
     config = ModelConfig()
 
-    tokenizer = BPETokenizer(text, vocab_size=config.vocab_size)
+    # 2. Carga o instanciación del tokenizador
+    if os.path.exists("tokenizer.pkl"):
+        with open("tokenizer.pkl", "rb") as f:
+            tokenizer = pickle.load(f)
+        logger.info("Tokenizador cargado desde disco.")
+    else:
+        tokenizer = BPETokenizer(text, vocab_size=config.vocab_size)
+        with open("tokenizer.pkl", "wb") as f:
+            pickle.dump(tokenizer, f)
+        logger.info("Nuevo tokenizador creado y guardado.")
+
     tokens = tokenizer.encode(text)
 
+    # 3. Instanciación del modelo
     model = LM(
         vocab_size=len(tokenizer.vocab),
         d_model=config.d_model,
@@ -170,6 +197,19 @@ if __name__ == "__main__":
         dropout=config.dropout,
     ).to(device)
 
+    # 4. Inyección de pesos para entrenamiento continuo
+    if os.path.exists("modelo_preentrenado.pth"):
+        model.load_state_dict(torch.load("modelo_preentrenado.pth", map_location=device, weights_only=True))
+        logger.info("Pesos del modelo cargados. Iniciando entrenamiento continuo.")
+
+    # 5. Compilación segura del modelo
+    if hasattr(torch, 'compile') and device == "cuda":
+        try:
+            model = torch.compile(model)
+        except RuntimeError:
+            logger.warning("torch.compile no soportado en Python 3.12+. Omitiendo compilación.")
+
+    # 6. Ejecución del entrenamiento
     train_loss, val_loss, elapsed = train(
         model, 
         tokens, 
@@ -177,16 +217,11 @@ if __name__ == "__main__":
         context_size=config.context_size,
         batch_size=config.batch_size,
         lr=config.lr,
-        train_ratio=config.train_ratio
+        train_ratio=config.train_ratio,
+        val_freq=config.val_freq
     )
 
     registrar_experimento(config, train_loss, val_loss, elapsed)
-
-    import pickle
-    with open("tokenizer.pkl", "wb") as f:
-        pickle.dump(tokenizer, f)
-    
-    logger.info("Modelo y tokenizador guardados exitosamente.")
 
     prompt = "alice and the cat were studying for the exam. what "
     prompt_ids = tokenizer.encode(prompt)
