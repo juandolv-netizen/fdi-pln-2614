@@ -15,13 +15,13 @@ from torch.utils.data import DataLoader, Dataset
 
 @dataclass
 class ModelConfig:
-    vocab_size: int = 2000
+    vocab_size: int = 1000
     context_size: int = 256
-    d_model: int = 128
+    d_model: int = 256
     n_heads: int = 4
-    n_layers: int = 4
+    n_layers: int = 6
     expansion: int = 4
-    dropout: float = 0.35
+    dropout: float = 0.15
     batch_size: int = 128
     epochs: int = 7
     lr: float = 3e-4
