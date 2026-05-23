@@ -21,7 +21,7 @@ class LM(nn.Module):
         self.lm_head = nn.Linear(d_model, vocab_size, bias=False)
         
         # Weight tying
-        self.tok_emb.weight = self.lm_head.weight
+        self.lm_head.weight = self.tok_emb.weight
         
         self.apply(self._init_weights)
 
