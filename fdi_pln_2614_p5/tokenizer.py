@@ -27,29 +27,29 @@ class BPETokenizer:
         tokens = [self.tok2id[c] for c in text]
         self.merges = []  # lista de ((id_a, id_b), nuevo_id), para encode()
 
-        #for new_id in range(len(self.vocab), vocab_size):
+        # for new_id in range(len(self.vocab), vocab_size):
         #    pairs = Counter(zip(tokens, tokens[1:]))
         #    best = pairs.most_common(1)[0][0]
 
         stats = Counter(zip(tokens, tokens[1:]))
 
         for new_id in range(len(self.vocab), vocab_size):
-             best = max(stats, key=stats.get)
-             del stats[best]
-             
-             new_tok = self.vocab[best[0]] + self.vocab[best[1]]
-             self.tok2id[new_tok] = new_id
-             self.vocab.append(new_tok)
-             self.merges.append((best, new_id))
-             
-             tokens = self._apply_merge(tokens, best[0], best[1], new_id)
+            best = max(stats, key=stats.get)
+            del stats[best]
+
+            new_tok = self.vocab[best[0]] + self.vocab[best[1]]
+            self.tok2id[new_tok] = new_id
+            self.vocab.append(new_tok)
+            self.merges.append((best, new_id))
+
+            tokens = self._apply_merge(tokens, best[0], best[1], new_id)
 
     @staticmethod
     def _apply_merge(tokens, a, b, new_id, stats=None):
         nw_tokens = []
         i = 0
         while i < len(tokens):
-            if i < len(tokens) - 1 and tokens[i] == a and tokens[i+1] == b:
+            if i < len(tokens) - 1 and tokens[i] == a and tokens[i + 1] == b:
                 if stats is not None:
                     # Contexto izquierdo (basado en el último token ya procesado)
                     if len(nw_tokens) > 0:
@@ -62,7 +62,7 @@ class BPETokenizer:
 
                     # Contexto derecho (basado en el próximo token sin procesar)
                     if i < len(tokens) - 2:
-                        next_tok = tokens[i+2]
+                        next_tok = tokens[i + 2]
                         pair_right = (b, next_tok)
                         stats[pair_right] -= 1
                         if stats[pair_right] <= 0:
@@ -77,14 +77,14 @@ class BPETokenizer:
 
         return nw_tokens
 
-            #if i < len(tokens) - 1 and tokens[i] == a and tokens [i+1] == b:
-            #    nw_tokens.append(new_id)
-            #    i += 2
-            #else:
-            #    nw_tokens.append(tokens[i])
-            #    i += 1
-        #return nw_tokens
-        #raise NotImplementedError  # TAREA: HACER
+        # if i < len(tokens) - 1 and tokens[i] == a and tokens [i+1] == b:
+        #    nw_tokens.append(new_id)
+        #    i += 2
+        # else:
+        #    nw_tokens.append(tokens[i])
+        #    i += 1
+        # return nw_tokens
+        # raise NotImplementedError  # TAREA: HACER
 
     def encode(self, text):
         """Codifica un texto aplicando los merges aprendidos."""
@@ -95,9 +95,9 @@ class BPETokenizer:
 
     def decode(self, ids):
         """Decodifica una lista de ids a texto."""
-        #Une las cadenas correspondientes a cada ID almacenadas en self.vocab
+        # Une las cadenas correspondientes a cada ID almacenadas en self.vocab
         return "".join(self.vocab[idx] for idx in ids)
-        #raise NotImplementedError  # TAREA: HACER
+        # raise NotImplementedError  # TAREA: HACER
 
     def __repr__(self):
         pretty = [t.replace("\n", "\\n").replace(" ", "▁") for t in self.vocab]

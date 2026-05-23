@@ -62,25 +62,25 @@ class Attention(nn.Module):
         ""
         # 1. Similitud y escalado
         scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
-        
+
         # 2. Máscara causal (Opcional según el flag)
         if causal:
             # scores shape: (batch_size, n_heads, n_tokens, n_tokens)
             scores = scores + self.mask[:n_tokens, :n_tokens]
-            
+
         # 3. Distribución de pesos (Softmax)
         # Se aplica sobre la última dimensión (la de las claves)
         attn_weights = softmax(scores, dim=-1)
-        
+
         # 4. Regularización (Dropout)
         attn_weights = self.dropout(attn_weights)
-        
+
         # 5. Multiplicación por valores (V)
         # attn_weights shape: (batch_size, n_heads, n_tokens, n_tokens)
         # v shape: (batch_size, n_heads, n_tokens, head_dim)
         z = attn_weights @ v
 
-        #raise NotImplementedError
+        # raise NotImplementedError
 
         # "deshacemos" la partición en cabezales
         # (batch_size, n_heads, n_tokens, head_dim) -> (batch_size, n_tokens, d_model)

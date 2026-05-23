@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from attention import Attention
+from .attention import Attention
+
 
 class TransformerBlock(nn.Module):
     def __init__(self, d_model, n_heads, max_seq_len, expansion, dropout):
@@ -9,14 +10,14 @@ class TransformerBlock(nn.Module):
         self.ln_1 = nn.LayerNorm(d_model, bias=False)
         self.attn = Attention(d_model, n_heads, max_seq_len, dropout)
         self.ln_2 = nn.LayerNorm(d_model, bias=False)
-        
+
         # Factor de expansión dinámico en lugar de constante fija
         hidden_dim = int(d_model * expansion)
         self.mlp = nn.Sequential(
             nn.Linear(d_model, hidden_dim, bias=False),
             nn.GELU(),
             nn.Linear(hidden_dim, d_model, bias=False),
-            nn.Dropout(dropout)
+            nn.Dropout(dropout),
         )
 
     def forward(self, x, causal=True):
