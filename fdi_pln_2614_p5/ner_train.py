@@ -43,11 +43,11 @@ class NerDataset(Dataset):
             label_ids.append(TAG2ID[label])
             # Los sub-tokens restantes se ignoran en el cálculo de pérdida (-100)
             label_ids.extend([-100] * (len(sub_tokens) - 1))
-            
+
             # Truncate if exceeding max_seq_len
             if len(word_ids) >= self.max_seq_len:
-                word_ids = word_ids[:self.max_seq_len]
-                label_ids = label_ids[:self.max_seq_len]
+                word_ids = word_ids[: self.max_seq_len]
+                label_ids = label_ids[: self.max_seq_len]
                 break
 
         return torch.tensor(word_ids, dtype=torch.long), torch.tensor(
@@ -70,13 +70,15 @@ def train_ner():
     # Get the path to the tokenizer relative to this module
     module_dir = Path(__file__).parent
     tokenizer_path = module_dir / "tokenizer.pkl"
-    
+
     # Handle pickle import issue by fixing sys.modules
     import sys
-    if 'tokenizer' not in sys.modules:
+
+    if "tokenizer" not in sys.modules:
         from . import tokenizer as tokenizer_module
-        sys.modules['tokenizer'] = tokenizer_module
-    
+
+        sys.modules["tokenizer"] = tokenizer_module
+
     try:
         with open(tokenizer_path, "rb") as f:
             tokenizer = pickle.load(f)
@@ -101,19 +103,23 @@ def train_ner():
     pretrained_path = module_dir / "p5_causal_2614.pth"
     if pretrained_path.exists():
         try:
-            state_dict = torch.load(pretrained_path, map_location=device, weights_only=True)
+            state_dict = torch.load(
+                pretrained_path, map_location=device, weights_only=True
+            )
             # Filtrar pesos que no coincidan en tamaño (vocabulary mismatch)
             model_state = model.state_dict()
             compatible_weights = {}
             for key, value in state_dict.items():
                 if key in model_state and model_state[key].shape == value.shape:
                     compatible_weights[key] = value
-            
+
             # Cargar solo los pesos compatibles
             if compatible_weights:
                 model.load_state_dict(compatible_weights, strict=False)
                 loaded_pct = (len(compatible_weights) / len(model_state)) * 100
-                logger.info(f"Pesos causales cargados: {len(compatible_weights)}/{len(model_state)} parámetros ({loaded_pct:.1f}%)")
+                logger.info(
+                    f"Pesos causales cargados: {len(compatible_weights)}/{len(model_state)} parámetros ({loaded_pct:.1f}%)"
+                )
             else:
                 logger.warning("No hay pesos compatibles para cargar")
         except Exception as e:
@@ -121,7 +127,9 @@ def train_ner():
             logger.warning("Continuando sin pesos preentrenados...")
     else:
         logger.warning(f"No se encontraron pesos causales en {pretrained_path}")
-        logger.warning("Asegúrate de entrenar el modelo causal primero con: entrenar -t causal")
+        logger.warning(
+            "Asegúrate de entrenar el modelo causal primero con: entrenar -t causal"
+        )
 
     # Adaptar para NER: Cambiar cabeza de salida a 5 clases y desvincular pesos (weight tying)
     model.lm_head = nn.Linear(config.d_model, len(TAG2ID), bias=False)

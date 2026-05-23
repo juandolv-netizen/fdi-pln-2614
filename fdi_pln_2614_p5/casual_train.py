@@ -235,9 +235,7 @@ def train_causal():
     pretrained_path = module_dir / "modelo_preentrenado.pth"
     if pretrained_path.exists():
         model.load_state_dict(
-            torch.load(
-                pretrained_path, map_location=device, weights_only=True
-            )
+            torch.load(pretrained_path, map_location=device, weights_only=True)
         )
         logger.info("Pesos del modelo cargados. Iniciando entrenamiento continuo.")
 
@@ -262,7 +260,13 @@ def train_causal():
         val_freq=config.val_freq,
     )
 
-    registrar_experimento(config, train_loss, val_loss, elapsed, filepath=str(module_dir / "experimentos.jsonl"))
+    registrar_experimento(
+        config,
+        train_loss,
+        val_loss,
+        elapsed,
+        filepath=str(module_dir / "experimentos.jsonl"),
+    )
 
     prompt = "alice and the cat were studying for the exam. what "
     prompt_ids = tokenizer.encode(prompt)

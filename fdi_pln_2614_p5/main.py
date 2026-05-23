@@ -67,7 +67,7 @@ def generar(
         pesos = MODULE_DIR / "p5_causal_2614.pth"
     else:
         pesos = Path(pesos)
-    
+
     if not pesos.exists():
         logger.error(f"Fichero de pesos no encontrado en: {pesos}")
         raise typer.Exit(code=1)
@@ -126,7 +126,7 @@ def ner(
         pesos = MODULE_DIR / "p5_ner_2614.pth"
     else:
         pesos = Path(pesos)
-    
+
     if not fichero.exists():
         logger.error(f"Fichero de entrada no encontrado en: {fichero}")
         raise typer.Exit(code=1)
