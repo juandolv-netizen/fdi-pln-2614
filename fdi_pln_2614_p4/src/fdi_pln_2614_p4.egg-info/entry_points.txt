@@ -1,2 +1,0 @@
-[console_scripts]
-fdi-pln-2614-p4 = fdi_pln_2614_p4.main:main
