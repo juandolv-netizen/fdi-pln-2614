@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class MessagePhase(str, Enum):
-    """Negotiation phase inferred from the opponent's message."""
+    """Fase de negociación inferida a partir del mensaje del oponente."""
 
     OPENING = "opening"
     COUNTER_OFFER = "counter_offer"
@@ -47,10 +47,10 @@ _OFFER = [
 
 
 def classify_message(body: str) -> MessagePhase:
-    """Rule-based classifier: determines the negotiation phase from plain text.
+    """Clasificador por reglas: determina la fase de negociación a partir de texto plano.
 
-    Rejection is checked before acceptance so that "no acepto" does not
-    match the "acepto" substring and trigger a false ACCEPTANCE.
+    El rechazo se comprueba antes que la aceptación para que "no acepto" no
+    coincida con la subcadena "acepto" y genere un falso ACCEPTANCE.
     """
     text = body.lower()
     if any(kw in text for kw in _REJECTION):

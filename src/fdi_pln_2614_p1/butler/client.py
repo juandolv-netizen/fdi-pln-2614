@@ -3,7 +3,7 @@ import httpx
 
 
 class ButlerClient:
-    """Thin async wrapper around the Butler REST API."""
+    """Envoltorio asíncrono sobre la API REST del Butler."""
 
     def __init__(self, base_url: str, alias: str, http: httpx.AsyncClient) -> None:
         self.base_url = base_url
@@ -18,7 +18,7 @@ class ButlerClient:
 
     async def register(self) -> None:
         await self._http.post(self._url(f"/alias/{self.alias}"), params=self._params())
-        logger.info("Registered alias '{}'", self.alias)
+        logger.info("Alias '{}' registrado en el butler", self.alias)
 
     async def get_info(self) -> dict:
         r = await self._http.get(self._url("/info"), params=self._params())
@@ -39,7 +39,7 @@ class ButlerClient:
             params=self._params(),
             json={"remi": self.alias, "dest": dest, "asunto": subject, "cuerpo": body},
         )
-        logger.debug("→ {} | {:.80}", dest, body)
+        logger.debug("Mensaje enviado a {} | {:.80}", dest, body)
 
     async def delete_message(self, uid: str) -> None:
         await self._http.delete(self._url(f"/mail/{uid}"), params=self._params())
@@ -55,4 +55,4 @@ class ButlerClient:
             params=self._params(),
             json=items,
         )
-        logger.info("Package sent to {}: {}", dest, items)
+        logger.info("Paquete enviado a {}: {}", dest, items)

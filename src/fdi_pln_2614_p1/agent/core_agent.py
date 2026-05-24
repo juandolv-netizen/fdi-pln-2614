@@ -42,8 +42,8 @@ class OfferResponse(BaseModel):
         return v
 
 
-# Phase-specific instructions injected into the prompt so the LLM
-# knows exactly what action is expected without inferring it from context.
+# Instrucciones específicas por fase inyectadas en el prompt para que el LLM
+# sepa exactamente qué acción se espera sin tener que inferirla del contexto.
 _PHASE_GUIDANCE: dict[MessagePhase, str] = {
     MessagePhase.ACCEPTANCE: (
         "ACCION REQUERIDA: El oponente ACABA DE ACEPTAR tu propuesta.\n"
@@ -126,7 +126,7 @@ def build_prompt(ctx: RunContext[AgentDeps]) -> str:
 
 
 def parse_offer(raw: str) -> OfferResponse:
-    """Extract and validate a JSON OfferResponse from raw LLM output."""
+    """Extrae y valida un OfferResponse JSON de la salida en bruto del LLM."""
     start, end = raw.find("{"), raw.rfind("}")
     if start == -1 or end == -1:
         raise ValueError(f"No JSON found in LLM output: {raw[:120]!r}")

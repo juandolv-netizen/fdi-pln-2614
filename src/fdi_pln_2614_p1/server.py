@@ -22,7 +22,7 @@ def _get_reputation(alias: str) -> float:
 
 
 def _update_reputation(alias: str, phase: MessagePhase) -> None:
-    """Nudge reputation up on acceptance, down on rejection."""
+    """Sube la reputación al aceptar y la baja al rechazar."""
     current = _reputation.get(alias, 0.5)
     if phase == MessagePhase.ACCEPTANCE:
         _reputation[alias] = min(1.0, current + 0.15)
@@ -33,7 +33,7 @@ def _update_reputation(alias: str, phase: MessagePhase) -> None:
 
 
 async def _fetch_objective(butler: ButlerClient) -> str:
-    """Ask the butler for this agent's assigned goal; fall back to a generic one."""
+    """Consulta al butler el objetivo asignado al agente; usa uno genérico si falla."""
     try:
         info = await butler.get_info()
         obj = info.get("Objetivo") or info.get("Mision") or info.get("Goal")
@@ -59,7 +59,7 @@ async def _process_message(
     phase = classify_message(body)
     _update_reputation(sender, phase)
     logger.debug(
-        "Phase from {}: {} (reputation now {:.2f})",
+        "Fase de {}: {} (reputación ahora {:.2f})",
         sender,
         phase,
         _get_reputation(sender),
@@ -90,12 +90,12 @@ async def _process_message(
         reply_text = offer.msg
 
         if offer.env:
-            logger.info("DEAL with {}! Sending: {}", sender, offer.env)
+            logger.info("¡TRATO con {}! Enviando paquete: {}", sender, offer.env)
             await butler.send_package(sender, offer.env)
             _historial[sender] = []
 
     except Exception as exc:
-        logger.warning("Parse error from LLM ({}): {!r:.120}", exc, result.output)
+        logger.warning("Error al parsear respuesta del LLM ({}): {!r:.120}", exc, result.output)
         reply_text = "Lo siento, hay un problema técnico. Hablamos en un momento."
         _historial[sender] = []
 
@@ -106,7 +106,7 @@ async def _process_message(
 async def _mail_loop(butler: ButlerClient) -> None:
     global _objective
     _objective = await _fetch_objective(butler)
-    logger.info("Objective loaded: {}", _objective)
+    logger.info("Objetivo cargado: {}", _objective)
 
     step = 0
     first_contact_done = False
@@ -121,7 +121,7 @@ async def _mail_loop(butler: ButlerClient) -> None:
                 agents = await butler.get_agents()
                 if agents:
                     target = agents[0]
-                    logger.info("Taking initiative with {}", target)
+                    logger.info("Tomando la iniciativa con {}", target)
                     _historial.setdefault(target, [])
                     try:
                         t_info = await butler.get_agent_info(target)
@@ -148,11 +148,11 @@ async def _mail_loop(butler: ButlerClient) -> None:
                         text = parse_offer(result.output.strip()).msg
                     except Exception:
                         text = f"Hola {target}, tengo {resources}. ¿Qué propones?"
-                    logger.info("-> {} (initiative) | {}", target, text)
+                    logger.info("-> {} (iniciativa) | {}", target, text)
                     await butler.send_message(target, "Trueque", text)
                     first_contact_done = True
 
-            # Keep only the latest message per sender; silently drop older duplicates
+            # Conservar solo el mensaje más reciente por remitente; descartar duplicados anteriores
             latest: dict[str, tuple[str, str]] = {}
             for uid, msg in mailbox.items():
                 sender: str = msg.get("remi", "")
@@ -161,7 +161,7 @@ async def _mail_loop(butler: ButlerClient) -> None:
                     continue
                 if sender in latest:
                     await butler.delete_message(latest[sender][0])
-                    logger.debug("Dropped stale duplicate from {}", sender)
+                    logger.debug("Descartado duplicado obsoleto de {}", sender)
                 latest[sender] = (uid, msg.get("cuerpo", ""))
 
             for sender, (uid, body) in latest.items():
@@ -171,7 +171,7 @@ async def _mail_loop(butler: ButlerClient) -> None:
                 await butler.delete_message(uid)
 
         except Exception as exc:
-            logger.error("Loop error: {}", exc)
+            logger.error("Error en el bucle principal: {}", exc)
             await asyncio.sleep(10)
             continue
 
@@ -191,7 +191,7 @@ async def lifespan(app: FastAPI):
         await butler.register()
         task = asyncio.create_task(_mail_loop(butler))
     except Exception as exc:
-        logger.error("Startup failed: {}", exc)
+        logger.error("Error al iniciar el agente: {}", exc)
 
     yield
 
