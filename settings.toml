@@ -1,9 +1,9 @@
 [LLM]
-MODEL_NAME = "llama3.2" 
+MODEL_NAME = "ministral-3:8b"
 BASE_URL = "http://127.0.0.1:11434/v1"
 
 [AGENT]
-ALIAS = "Npi"  # Pon un nombre épico a tu agente
+ALIAS = "G14"
 
-[BUTLER]
-ADDRESS = "http://127.0.0.1:7719"
+[PLN]
+BUTLER_ADDRESS = "http://127.0.0.1:7719"
