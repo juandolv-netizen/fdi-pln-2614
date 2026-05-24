@@ -1,13 +1,22 @@
 import pickle
+import sys
 from pathlib import Path
+
 import torch
 import torch.nn as nn
 import typer
 from loguru import logger
 from rich.console import Console
+from rich.markup import escape
 
 from .casual_train import ModelConfig
-from .llm import LM
+from .llm import LM, n_layers_from_state
+
+# Permite deserializar tokenizadores guardados antes del empaquetado
+from . import tokenizer as _tok_module
+
+if "tokenizer" not in sys.modules:
+    sys.modules["tokenizer"] = _tok_module
 
 # Get the path to the module directory for accessing resources
 MODULE_DIR = Path(__file__).parent
@@ -24,6 +33,12 @@ def entrenar(
     tarea: str = typer.Option(
         ..., "--tarea", "-t", help="Tarea a entrenar: 'causal' o 'ner'"
     ),
+    pesos: Path = typer.Option(
+        None,
+        "--pesos",
+        "-p",
+        help="Ruta a pesos causales preentrenados para inicializar el fine-tuning NER (.pth)",
+    ),
 ):
     """Entrena la tarea de generación de texto (causal) o el clasificador de entidades (ner)."""
     if tarea == "causal":
@@ -35,7 +50,7 @@ def entrenar(
         logger.info("Iniciando entrenamiento de NER...")
         from .ner_train import train_ner
 
-        train_ner()
+        train_ner(pesos_causales=pesos)
     else:
         console.print(
             f"[bold red]Error:[/bold red] Tarea '{tarea}' no reconocida. Opciones válidas: 'causal', 'ner'."
@@ -81,17 +96,24 @@ def generar(
         tokenizer = pickle.load(f)
 
     config = ModelConfig()
+    state_dict = torch.load(pesos, map_location=device, weights_only=True)
+    ckpt_vocab = state_dict["tok_emb.weight"].shape[0]
+    if len(tokenizer.vocab) != ckpt_vocab:
+        tokenizer.vocab = tokenizer.vocab[:ckpt_vocab]
+        tokenizer.tok2id = {tok: i for i, tok in enumerate(tokenizer.vocab)}
+        tokenizer.merges = [(p, i) for p, i in tokenizer.merges if i < ckpt_vocab]
+
     model = LM(
-        vocab_size=len(tokenizer.vocab),
+        vocab_size=ckpt_vocab,
         d_model=config.d_model,
         n_heads=config.n_heads,
-        n_layers=config.n_layers,
+        n_layers=n_layers_from_state(state_dict),
         max_seq_len=config.context_size,
         expansion=config.expansion,
         dropout=config.dropout,
     )
 
-    model.load_state_dict(torch.load(pesos, map_location=device, weights_only=True))
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
 
@@ -143,15 +165,16 @@ def ner(
     with open(tokenizer_path, "rb") as f:
         tokenizer = pickle.load(f)
 
-    texto = fichero.read_text(encoding="utf-8")
+    texto = fichero.read_text(encoding="utf-8-sig")
     palabras = texto.split()
 
     config = ModelConfig()
+    ner_state = torch.load(pesos, map_location=device, weights_only=True)
     model = LM(
         vocab_size=len(tokenizer.vocab),
         d_model=config.d_model,
         n_heads=config.n_heads,
-        n_layers=config.n_layers,
+        n_layers=n_layers_from_state(ner_state),
         max_seq_len=config.context_size,
         expansion=config.expansion,
         dropout=config.dropout,
@@ -159,7 +182,7 @@ def ner(
 
     # Reemplazar la cabeza lineal por la de clasificación de tokens NER
     model.lm_head = nn.Linear(config.d_model, len(TAG2ID), bias=False)
-    model.load_state_dict(torch.load(pesos, map_location=device, weights_only=True))
+    model.load_state_dict(ner_state)
     model.to(device)
     model.eval()
 
@@ -196,12 +219,12 @@ def ner(
 
         if etiqueta != "O":
             console.print(
-                f"- [bold cyan]{palabras[i]}[/bold cyan] : [yellow]{etiqueta}[/yellow]"
+                f"- [bold cyan]{escape(palabras[i])}[/bold cyan] : [yellow]{etiqueta}[/yellow]"
             )
             entidades_encontradas = True
 
     if not entidades_encontradas:
-        console.print("[pálido]No se encontraron entidades en el archivo.[/pálido]")
+        console.print("[dim]No se encontraron entidades en el archivo.[/dim]")
 
 
 def main():

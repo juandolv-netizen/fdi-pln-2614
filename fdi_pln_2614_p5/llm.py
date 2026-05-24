@@ -4,6 +4,11 @@ from torch.nn.functional import cross_entropy, softmax
 from .transformer import TransformerBlock
 
 
+def n_layers_from_state(state_dict: dict) -> int:
+    """Infiere el número de bloques transformer de un state_dict guardado."""
+    return len({k.split(".")[1] for k in state_dict if k.startswith("blocks.")})
+
+
 class LM(nn.Module):
     def __init__(
         self, vocab_size, d_model, n_heads, n_layers, max_seq_len, expansion, dropout

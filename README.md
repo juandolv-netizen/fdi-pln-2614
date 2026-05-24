@@ -23,7 +23,7 @@ fdi-pln-2614-p5 --help
 ### Desde el código fuente
 
 ```bash
-git clone https://github.com/tu-usuario/fdi-pln-2614.git
+git clone https://github.com/juandolv-netizen/fdi-pln-2614.git
 cd fdi-pln-2614
 uv install
 ```
@@ -122,6 +122,29 @@ Tags: `O`, `B-PER`, `I-PER`, `B-LOC`, `I-LOC`
 ### NER
 - Detección correcta de entidades en textos de Lewis Carroll
 - Fine-tuning con frozen layers para eficiencia
+
+## Exploración de Hiperparámetros
+
+Se realizaron 3 experimentos registrados en `fdi_pln_2614_p5/experimentos.jsonl`. El corpus de entrenamiento es la concatenación preprocesada de *Alice in Wonderland* y *Through the Looking-Glass*.
+
+| Exp | vocab\_size | n\_layers | dropout | batch\_size | epochs | train\_loss | val\_loss |
+|-----|-------------|-----------|---------|-------------|--------|-------------|-----------|
+| 1   | 500         | 4         | 0.25    | 64          | 5      | 2.032       | 1.995     |
+| 2   | 500         | 4         | 0.25    | 128         | 10     | 1.471       | 2.686     |
+| 3   | 2000        | 4         | 0.35    | 128         | 7      | 2.221       | 2.061     |
+
+### Observaciones
+
+- **Exp 1 → Exp 2** (más épocas, mayor batch): el entrenamiento mejoró (train 2.03 → 1.47) pero la validación empeoró significativamente (1.99 → 2.69), señal clara de **sobreajuste**. Con un corpus pequeño (~200 K tokens), 10 épocas son excesivas sin regularización adicional.
+- **Exp 2 → Exp 3** (vocab más grande, más dropout): aumentar el vocabulario de 500 a 2 000 tokens perjudicó el rendimiento, ya que el corpus es demasiado pequeño para aprender representaciones útiles de 2 000 tokens. Sin embargo, aumentar el dropout (0.25 → 0.35) mejoró la generalización frente al Exp 2.
+- El modelo final (`p5_causal_2614.pth`) usa la configuración de `ModelConfig` con `n_layers=6`, obtenida mediante entrenamiento continuo a partir de los mejores pesos del Exp 1.
+
+### Posibles mejoras
+
+- **Learning rate scheduling**: usar cosine annealing o warmup reduciría el sobreajuste observado en Exp 2 sin necesidad de bajar épocas.
+- **Corpus más grande**: el tamaño (~200 K tokens) limita cuánto vocabulario y estructura puede aprender el modelo; añadir más texto de Carroll u obras de época similar mejoraría la cobertura.
+- **Weight decay explícito**: `AdamW` con `weight_decay > 0` (p. ej. 0.01) actuaría como regularizador adicional al dropout.
+- **Vocab óptimo**: los experimentos sugieren que con este corpus el rango 500–800 tokens es más adecuado que 2 000; un barrido más fino lo confirmaría.
 
 ## Nota Técnica
 

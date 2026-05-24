@@ -1,5 +1,4 @@
 # casual_train.py
-import os
 import time
 import json
 import pickle
@@ -88,7 +87,7 @@ def _run_epoch(model, dataloader, optimizer=None):
     device = next(model.parameters()).device
 
     scaler = (
-        torch.cuda.amp.GradScaler() if optimizer and device.type == "cuda" else None
+        torch.amp.GradScaler("cuda") if optimizer and device.type == "cuda" else None
     )
 
     if optimizer:
@@ -166,7 +165,6 @@ def train(
 
 def train_causal():
     """Entrena el modelo de generación causal (language modeling)."""
-    import sys
     from .llm import LM
     from .tokenizer import BPETokenizer
     from .preprocess import run_preprocessing
@@ -277,102 +275,4 @@ def train_causal():
 
 
 if __name__ == "__main__":
-    import sys
-    from .llm import LM
-    from .tokenizer import BPETokenizer
-    from .preprocess import run_preprocessing
-
-    # 0. Preprocesamiento dinámico
-    input_corpus_dir = sys.argv[1] if len(sys.argv) > 1 else "resources"
-    processed_dir = f"{input_corpus_dir}_clean"
-
-    logger.info(
-        f"Preprocesando corpus desde '{input_corpus_dir}' hacia '{processed_dir}'..."
-    )
-    run_preprocessing(
-        input_dir=input_corpus_dir,
-        output_dir=processed_dir,
-        exclude_files={"Natural_Language_Processing_with_Python.txt"},
-    )
-
-    # 1. Carga de corpus
-    try:
-        from .corpus import load_corpus
-
-        text = load_corpus(processed_dir)
-    except ImportError:
-
-        def load_corpus(path):
-            p = Path(path)
-            return "\n".join(
-                open(f, encoding="utf-8", errors="ignore").read()
-                for f in p.glob("*.txt")
-            )
-
-        text = load_corpus(processed_dir)
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    config = ModelConfig()
-
-    # 2. Carga o instanciación del tokenizador
-    if os.path.exists("tokenizer.pkl"):
-        with open("tokenizer.pkl", "rb") as f:
-            tokenizer = pickle.load(f)
-        logger.info("Tokenizador cargado desde disco.")
-    else:
-        tokenizer = BPETokenizer(text, vocab_size=config.vocab_size)
-        with open("tokenizer.pkl", "wb") as f:
-            pickle.dump(tokenizer, f)
-        logger.info("Nuevo tokenizador creado y guardado.")
-
-    tokens = tokenizer.encode(text)
-
-    # 3. Instanciación del modelo
-    model = LM(
-        vocab_size=len(tokenizer.vocab),
-        d_model=config.d_model,
-        n_heads=config.n_heads,
-        n_layers=config.n_layers,
-        max_seq_len=config.context_size,
-        expansion=config.expansion,
-        dropout=config.dropout,
-    ).to(device)
-
-    # 4. Inyección de pesos para entrenamiento continuo
-    if os.path.exists("modelo_preentrenado.pth"):
-        model.load_state_dict(
-            torch.load(
-                "modelo_preentrenado.pth", map_location=device, weights_only=True
-            )
-        )
-        logger.info("Pesos del modelo cargados. Iniciando entrenamiento continuo.")
-
-    # 5. Compilación segura del modelo
-    if hasattr(torch, "compile") and device == "cuda":
-        try:
-            model = torch.compile(model)
-        except RuntimeError:
-            logger.warning(
-                "torch.compile no soportado en Python 3.12+. Omitiendo compilación."
-            )
-
-    # 6. Ejecución del entrenamiento
-    train_loss, val_loss, elapsed = train(
-        model,
-        tokens,
-        epochs=config.epochs,
-        context_size=config.context_size,
-        batch_size=config.batch_size,
-        lr=config.lr,
-        train_ratio=config.train_ratio,
-        val_freq=config.val_freq,
-    )
-
-    registrar_experimento(config, train_loss, val_loss, elapsed)
-
-    prompt = "alice and the cat were studying for the exam. what "
-    prompt_ids = tokenizer.encode(prompt)
-    pred_ids = model.generate(prompt_ids, max_tokens=200)
-    logger.opt(colors=True).info(
-        f"<cyan>{prompt}</cyan>{tokenizer.decode(pred_ids)[:500]}"
-    )
+    train_causal()

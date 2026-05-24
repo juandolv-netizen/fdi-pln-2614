@@ -1,8 +1,3 @@
-# Mecanismo de atención comentado
-#
-# PLN 2025/2026 (FDI UCM)
-# Antonio F. G. Sevilla <afgs@ucm.es>
-
 import math
 
 import torch
@@ -27,8 +22,6 @@ class Attention(nn.Module):
         self.head_dim = d_model // n_heads
         # Una única matriz para QKV, luego separaremos
         self.qkv = nn.Linear(d_model, 3 * d_model)
-        # Capa lineal para permitir al modelo reproyectar los vectores contexto
-        # TAREA: necesaria? y si la quito?
         self.out = nn.Linear(d_model, d_model)
         # El dropout se activa en train y desactiva en test gracias a pytorch
         self.dropout = nn.Dropout(dropout)
@@ -44,7 +37,7 @@ class Attention(nn.Module):
         # Los tensores de pytorch tienen primero una dimensión batch
         # (entrenamiento más eficiente si hacemos varios a la vez)
         # luego tokens y luego ya la dimensión de los embeddings
-        batch_size, n_tokens, d_model = x.shape
+        _, n_tokens, _ = x.shape
 
         # multiplicamos x por QKV (todo junto), pero separamos a lo largo de la
         # última dimensión para tener las matrices de queries, keys y values
@@ -54,12 +47,6 @@ class Attention(nn.Module):
         k = self.split_heads(k)
         v = self.split_heads(v)
 
-        # TAREA: Implementar
-        # Nota: para escalar, dividir por raíz de head_dim (para que los logits
-        # no crezcan sin control)
-        # z = ...?
-        "Calcula la similitud (producto escalar de Q y K)"
-        ""
         # 1. Similitud y escalado
         scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
 
@@ -96,5 +83,4 @@ class Attention(nn.Module):
         # (batch_size, n_tokens, n_heads, head_dim) -> (batch_size, n_heads, n_tokens, head_dim)
         #  transponemos n_tokens y n_heads para que cada cabezal de atención se
         # "multiplique por separado", haciéndolos independientes
-        # TAREA: hacer el álgebra a mano para ver como funciona
         return x.transpose(1, 2)

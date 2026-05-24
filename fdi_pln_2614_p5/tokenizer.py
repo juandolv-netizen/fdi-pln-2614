@@ -1,9 +1,3 @@
-# Tokenizador BPE (Byte Pair Encoding) mínimo, entrenado sobre el texto."""
-#
-# PLN 2025/2026 (FDI UCM)
-# Antonio F. G. Sevilla <afgs@ucm.es>
-
-
 from collections import Counter
 
 
@@ -32,7 +26,6 @@ class BPETokenizer:
         #    best = pairs.most_common(1)[0][0]
 
         stats = Counter(zip(tokens, tokens[1:]))
-
         for new_id in range(len(self.vocab), vocab_size):
             best = max(stats, key=stats.get)
             del stats[best]
@@ -77,15 +70,6 @@ class BPETokenizer:
 
         return nw_tokens
 
-        # if i < len(tokens) - 1 and tokens[i] == a and tokens [i+1] == b:
-        #    nw_tokens.append(new_id)
-        #    i += 2
-        # else:
-        #    nw_tokens.append(tokens[i])
-        #    i += 1
-        # return nw_tokens
-        # raise NotImplementedError  # TAREA: HACER
-
     def encode(self, text):
         """Codifica un texto aplicando los merges aprendidos."""
         tokens = [self.tok2id.get(c, 0) for c in text]
@@ -97,7 +81,6 @@ class BPETokenizer:
         """Decodifica una lista de ids a texto."""
         # Une las cadenas correspondientes a cada ID almacenadas en self.vocab
         return "".join(self.vocab[idx] for idx in ids)
-        # raise NotImplementedError  # TAREA: HACER
 
     def __repr__(self):
         pretty = [t.replace("\n", "\\n").replace(" ", "▁") for t in self.vocab]

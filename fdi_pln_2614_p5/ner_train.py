@@ -63,7 +63,7 @@ def collate_fn(batch):
     return inputs_padded, targets_padded
 
 
-def train_ner():
+def train_ner(pesos_causales: Path = None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     config = ModelConfig()
 
@@ -100,7 +100,9 @@ def train_ner():
     )
 
     # Cargar pesos base
-    pretrained_path = module_dir / "p5_causal_2614.pth"
+    pretrained_path = (
+        Path(pesos_causales) if pesos_causales else module_dir / "p5_causal_2614.pth"
+    )
     if pretrained_path.exists():
         try:
             state_dict = torch.load(
